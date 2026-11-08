@@ -1,7 +1,7 @@
 --==========================================================
--- NERO FE v21.0 // CYBER EDITION  (BASE DE INTERFACE)
--- Criadores: Dark & DemonFrota
--- Só a UI: janela, 12 abas vazias, botão flutuante arrastável.
+-- NERO FE v21 // ORANGE EDITION  (BASE DE INTERFACE)
+-- Só a UI: janela, 12 abas vazias, botão flutuante N, botão flutuante E (mobile)
+-- e tela de loading com código sendo gerado.
 -- COLE SUAS ABAS no fim do arquivo, dentro da zona marcada.
 --==========================================================
 getgenv().NERO_FE_LOADED = nil
@@ -35,14 +35,22 @@ local NERO = {
     FlingAll=false, GlitchWalk=false, ChatSpam=false
 }
 
--- Cores (C mantém os nomes antigos: primary, premium, surface, tabBg...)
+-- ==================== CORES ====================
+-- Laranja neon: 255,106,0  (255,255,255 seria BRANCO).
+-- Quer mudar o tom? Troque só esta linha:
+local NEON = Color3.fromRGB(255, 106, 0)
+
+-- C mantém os nomes antigos (primary, cyan, pink, premium...) mas agora tudo é laranja.
 local C = {
-    bg=Color3.fromRGB(7,6,14), surface=Color3.fromRGB(16,14,30), tabBg=Color3.fromRGB(26,20,48),
-    panel=Color3.fromRGB(16,14,30), panel2=Color3.fromRGB(26,20,48),
-    primary=Color3.fromRGB(0,240,255), cyan=Color3.fromRGB(0,240,255), pink=Color3.fromRGB(255,0,140),
-    premium=Color3.fromRGB(252,238,10), yellow=Color3.fromRGB(252,238,10), premiumBg=Color3.fromRGB(26,22,6),
-    text=Color3.fromRGB(235,240,255), subtext=Color3.fromRGB(125,125,160), sub=Color3.fromRGB(125,125,160),
-    off=Color3.fromRGB(40,36,66)
+    bg=Color3.fromRGB(9,6,4), surface=Color3.fromRGB(22,14,9), tabBg=Color3.fromRGB(38,22,12),
+    panel=Color3.fromRGB(22,14,9), panel2=Color3.fromRGB(38,22,12),
+    primary=NEON, cyan=NEON,                       -- laranja neon (cor principal)
+    glow=Color3.fromRGB(255,150,40),               -- laranja claro (brilho)
+    pink=Color3.fromRGB(255,62,0),                 -- laranja avermelhado (detalhes)
+    premium=Color3.fromRGB(255,184,0), yellow=Color3.fromRGB(255,184,0), -- âmbar (aba premium)
+    premiumBg=Color3.fromRGB(32,22,6),
+    text=Color3.fromRGB(255,240,225), subtext=Color3.fromRGB(165,132,108), sub=Color3.fromRGB(165,132,108),
+    off=Color3.fromRGB(56,38,26)
 }
 
 local placeId  = game.PlaceId
@@ -101,7 +109,7 @@ pcall(function() local o = targetParent:FindFirstChild("NERO_HTML") if o then o:
 Gui = new("ScreenGui", {Name="NERO_HTML", ResetOnSpawn=false, IgnoreGuiInset=true,
     ZIndexBehavior=Enum.ZIndexBehavior.Sibling, DisplayOrder=999}, targetParent)
 
--- gradientes girando
+-- gradientes girando (laranja -> laranja claro -> laranja)
 local Spin = {}
 bind(RS.RenderStepped:Connect(function()
     local r = (tick() * 70) % 360
@@ -110,7 +118,7 @@ end))
 local function neonStroke(o, th)
     local s = stroke(o, Color3.new(1,1,1), th or 2, 0)
     local g = new("UIGradient", {Color=ColorSequence.new({
-        ColorSequenceKeypoint.new(0, T.cyan), ColorSequenceKeypoint.new(0.5, T.pink), ColorSequenceKeypoint.new(1, T.cyan)})}, s)
+        ColorSequenceKeypoint.new(0, T.cyan), ColorSequenceKeypoint.new(0.5, T.glow), ColorSequenceKeypoint.new(1, T.cyan)})}, s)
     table.insert(Spin, g)
     return s
 end
@@ -146,7 +154,7 @@ function PremiumNotify(title, desc) Toast(title, desc, T.yellow) end
 function DispararConfetes()
     task.spawn(function()
         local cg = new("ScreenGui", {Name="NeroConfetti", IgnoreGuiInset=true, DisplayOrder=998}, targetParent)
-        local cores = {T.cyan, T.pink, T.yellow, Color3.new(1,1,1), Color3.fromRGB(150,50,255)}
+        local cores = {T.cyan, T.glow, T.yellow, Color3.new(1,1,1), Color3.fromRGB(255,200,120)}
         for _ = 1, 90 do
             local c = new("Frame", {Size=UDim2.fromOffset(math.random(5,10), math.random(10,18)),
                 Position=UDim2.new(math.random(0,100)/100,0,-0.1,0), BackgroundColor3=cores[math.random(#cores)],
@@ -162,17 +170,18 @@ function DispararConfetes()
 end
 
 -- ---------- arrastar ----------
+-- (só segue o dedo que começou o arrasto, então mexer no joystick não move a janela)
 local function draggable(handle, target)
-    local dragging, startIn, startPos, moved = false, nil, nil, false
+    local dragging, startIn, startPos, moved, active = false, nil, nil, false, nil
     handle.InputBegan:Connect(function(i)
         if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
-            dragging, moved = true, false
+            dragging, moved, active = true, false, i
             startIn, startPos = i.Position, target.Position
             i.Changed:Connect(function() if i.UserInputState == Enum.UserInputState.End then dragging = false end end)
         end
     end)
     bind(UIS.InputChanged:Connect(function(i)
-        if dragging and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then
+        if dragging and (i == active or i.UserInputType == Enum.UserInputType.MouseMovement) then
             local d = i.Position - startIn
             if d.Magnitude > 6 then moved = true end
             if moved then
@@ -190,7 +199,7 @@ Main = new("Frame", {Name="Main", Size=UDim2.fromOffset(380,300), AnchorPoint=Ve
     ClipsDescendants=true, Visible=false}, Gui)
 corner(Main, 10)
 local MScale = new("UIScale", {Scale=0}, Main)
-new("UIGradient", {Color=ColorSequence.new(Color3.fromRGB(16,8,30), T.bg), Rotation=90}, Main)
+new("UIGradient", {Color=ColorSequence.new(Color3.fromRGB(30,14,6), T.bg), Rotation=90}, Main)
 neonStroke(Main, 2)
 
 local scan = new("Frame", {Size=UDim2.new(1,0,0,26), Position=UDim2.new(0,0,0,-26), BackgroundColor3=T.cyan,
@@ -200,7 +209,7 @@ new("UIGradient", {Rotation=90, Transparency=NumberSequence.new({NumberSequenceK
 TS:Create(scan, TweenInfo.new(3.5, Enum.EasingStyle.Linear, Enum.EasingDirection.Out, -1), {Position=UDim2.new(0,0,1,0)}):Play()
 
 local Header = new("Frame", {Size=UDim2.new(1,0,0,34), BackgroundColor3=T.panel, BorderSizePixel=0, ZIndex=5}, Main)
-new("UIGradient", {Color=ColorSequence.new(Color3.fromRGB(38,10,56), T.panel)}, Header)
+new("UIGradient", {Color=ColorSequence.new(Color3.fromRGB(60,24,6), T.panel)}, Header)
 local hl = new("Frame", {Size=UDim2.new(1,0,0,1), Position=UDim2.new(0,0,1,-1), BackgroundColor3=Color3.new(1,1,1), BorderSizePixel=0, ZIndex=6}, Header)
 new("UIGradient", {Color=ColorSequence.new(T.pink, T.cyan)}, hl)
 
@@ -209,10 +218,10 @@ local function titleLabel(color, z, trans)
         Text="NERO//FE", TextColor3=color, TextTransparency=trans, Font=Enum.Font.SciFi, TextSize=17,
         TextXAlignment=Enum.TextXAlignment.Left, ZIndex=z}, Header)
 end
-local gP, gC = titleLabel(T.pink, 5, 0.3), titleLabel(T.cyan, 5, 0.3)
+local gP, gC = titleLabel(T.pink, 5, 0.3), titleLabel(T.glow, 5, 0.3)
 titleLabel(T.text, 6, 0)
 new("TextLabel", {Size=UDim2.new(0,260,0,12), Position=UDim2.new(0,12,0,21), BackgroundTransparency=1,
-    Text="v21 // CYBER EDITION // "..GameName:sub(1,24), TextColor3=T.sub, Font=Enum.Font.Code, TextSize=9,
+    Text="v21 // ORANGE EDITION // "..GameName:sub(1,24), TextColor3=T.sub, Font=Enum.Font.Code, TextSize=9,
     TextXAlignment=Enum.TextXAlignment.Left, ZIndex=6}, Header)
 
 task.spawn(function()
@@ -437,7 +446,7 @@ function createPremiumToggle(name, desc, parent, y)
         TextColor3=C.premium, TextSize=12, Font=Enum.Font.Code, TextXAlignment=Enum.TextXAlignment.Left}, frame)
     new("TextLabel", {Size=UDim2.new(0,180,0,16), Position=UDim2.new(0,12,0,24), BackgroundTransparency=1, Text=desc or "",
         TextColor3=C.sub, TextSize=9, Font=Enum.Font.Code, TextXAlignment=Enum.TextXAlignment.Left}, frame)
-    local toggleBg = new("Frame", {Size=UDim2.new(0,44,0,24), Position=UDim2.new(1,-55,0,13), BackgroundColor3=Color3.fromRGB(40,34,12), BorderSizePixel=0}, frame)
+    local toggleBg = new("Frame", {Size=UDim2.new(0,44,0,24), Position=UDim2.new(1,-55,0,13), BackgroundColor3=Color3.fromRGB(46,34,8), BorderSizePixel=0}, frame)
     corner(toggleBg, 6)
     local toggleKnob = new("Frame", {Size=UDim2.new(0,20,0,20), Position=UDim2.new(0,2,0,2), BackgroundColor3=C.sub, BorderSizePixel=0}, toggleBg)
     corner(toggleKnob, 5)
@@ -447,7 +456,7 @@ end
 
 function updateToggle(bg, knob, on, isPremium)
     local active = isPremium and C.premium or C.primary
-    local inactive = isPremium and Color3.fromRGB(40,34,12) or C.off
+    local inactive = isPremium and Color3.fromRGB(46,34,8) or C.off
     tw(knob, 0.18, {Position = on and UDim2.new(1,-22,0,2) or UDim2.new(0,2,0,2), BackgroundColor3 = on and C.bg or C.sub}, Enum.EasingStyle.Back)
     tw(bg, 0.18, {BackgroundColor3 = on and active or inactive})
 end
@@ -497,7 +506,7 @@ bind(UIS.InputBegan:Connect(function(i, gp)
     end
 end))
 
--- Botão flutuante genérico (ex.: seu botão E): UI.FloatingButton("E", function() ... end)
+-- Botão flutuante genérico: UI.FloatingButton("X", function() ... end)
 function UI.FloatingButton(text, cb, pos)
     local box = new("Frame", {Size=UDim2.fromOffset(50,50), Position=pos or UDim2.new(0.85,0,0.5,0), BackgroundColor3=T.panel, BorderSizePixel=0}, Gui)
     corner(box, 25)
@@ -509,36 +518,359 @@ function UI.FloatingButton(text, cb, pos)
     return box
 end
 
+-- ---------- botão E flutuante (mobile) ----------
+-- Toque rápido  : se tiver um ProximityPrompt (interação) perto, aciona ele;
+--                 se não tiver, simula a tecla E.
+-- Segurar       : mantém a tecla E apertada até soltar.
+-- Arrastar      : muda o botão de lugar (só o dedo que arrastou move, o joystick não atrapalha).
+local VIM
+pcall(function() VIM = game:GetService("VirtualInputManager") end)
+
+local Prompts = {}
+local function trackPrompt(o) if o:IsA("ProximityPrompt") then Prompts[o] = true end end
+task.spawn(function()
+    local n = 0
+    for _, o in ipairs(workspace:GetDescendants()) do
+        trackPrompt(o)
+        n = n + 1
+        if n % 4000 == 0 then task.wait() end
+    end
+end)
+bind(workspace.DescendantAdded:Connect(trackPrompt))
+bind(workspace.DescendantRemoving:Connect(function(o) Prompts[o] = nil end))
+
+local function nearestPrompt()
+    local char = LP.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return nil end
+    local best, bestD = nil, math.huge
+    for p in pairs(Prompts) do
+        if p.Parent and p.Enabled then
+            local par = p.Parent
+            local pos
+            if par:IsA("BasePart") then pos = par.Position
+            elseif par:IsA("Attachment") then pos = par.WorldPosition end
+            if pos then
+                local d = (pos - hrp.Position).Magnitude
+                if d <= p.MaxActivationDistance + 2 and d < bestD then best, bestD = p, d end
+            end
+        end
+    end
+    return best
+end
+
+local function pressE(down)
+    if VIM then pcall(function() VIM:SendKeyEvent(down, Enum.KeyCode.E, false, game) end) end
+end
+
+local warnedE = false
+local function tapE()
+    local p = nearestPrompt()
+    if p and fireproximityprompt then
+        pcall(fireproximityprompt, p)
+    elseif VIM then
+        pressE(true); task.wait(0.06); pressE(false)
+    elseif not warnedE then
+        warnedE = true
+        Notify("Seu executor não suporta o botão E")
+    end
+end
+
+function UI.EButton(pos)
+    if UI.EBox and UI.EBox.Parent then return UI.EBox end
+    local lit = Color3.fromRGB(120, 48, 0)
+    local box = new("Frame", {Name="EButton", Size=UDim2.fromOffset(58,58), Position=pos or UDim2.new(1,-250,1,-110),
+        BackgroundColor3=T.panel, BorderSizePixel=0}, Gui)
+    corner(box, 29)
+    neonStroke(box, 2)
+    local sc = new("UIScale", {Scale=1}, box)
+    new("TextLabel", {Size=UDim2.fromScale(1,1), BackgroundTransparency=1, Text="E", TextColor3=T.cyan,
+        Font=Enum.Font.SciFi, TextSize=28, ZIndex=2}, box)
+    local hit = new("TextButton", {Size=UDim2.fromScale(1,1), BackgroundTransparency=1, Text="", ZIndex=3}, box)
+
+    local dragging, moved, held, active = false, false, false, nil
+    local startIn, startPos, token = nil, nil, 0
+
+    local function finish()
+        if not dragging then return end
+        dragging = false
+        token = token + 1
+        tw(sc, 0.12, {Scale=1})
+        if held then
+            held = false
+            pressE(false)
+            tw(box, 0.25, {BackgroundColor3=T.panel})
+        elseif not moved then
+            box.BackgroundColor3 = lit
+            tw(box, 0.3, {BackgroundColor3=T.panel})
+            task.spawn(tapE)
+        end
+    end
+
+    hit.InputBegan:Connect(function(i)
+        if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+            dragging, moved, held, active = true, false, false, i
+            startIn, startPos = i.Position, box.Position
+            token = token + 1
+            local my = token
+            tw(sc, 0.1, {Scale=0.9})
+            task.delay(0.28, function()
+                if token == my and dragging and not moved then
+                    held = true
+                    box.BackgroundColor3 = lit
+                    pressE(true)
+                end
+            end)
+            i.Changed:Connect(function()
+                if i.UserInputState == Enum.UserInputState.End then finish() end
+            end)
+        end
+    end)
+    bind(UIS.InputChanged:Connect(function(i)
+        if dragging and not held and (i == active or i.UserInputType == Enum.UserInputType.MouseMovement) then
+            local d = i.Position - startIn
+            if d.Magnitude > 8 then moved = true end
+            if moved then
+                box.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + d.X, startPos.Y.Scale, startPos.Y.Offset + d.Y)
+            end
+        end
+    end))
+
+    UI.EBox = box
+    return box
+end
+
 Gui.Destroying:Connect(function()
     for _, c in ipairs(NERO.Connections) do pcall(function() c:Disconnect() end) end
 end)
 
--- ---------- boot ----------
+-- ---------- boot (tela de loading) ----------
 function UI.Boot()
-    local ov = new("Frame", {Size=UDim2.fromScale(1,1), BackgroundColor3=Color3.new(0,0,0), BorderSizePixel=0, ZIndex=1000}, Gui)
-    local lbl = new("TextLabel", {Size=UDim2.new(1,0,0,44), Position=UDim2.new(0,0,0.5,-50), BackgroundTransparency=1, Text="",
-        TextColor3=T.cyan, Font=Enum.Font.SciFi, TextSize=36, ZIndex=1001}, ov)
-    local sub = new("TextLabel", {Size=UDim2.new(1,0,0,16), Position=UDim2.new(0,0,0.5,0), BackgroundTransparency=1, Text="",
-        TextColor3=T.pink, Font=Enum.Font.Code, TextSize=12, ZIndex=1001}, ov)
-    local barBg = new("Frame", {AnchorPoint=Vector2.new(0.5,0), Size=UDim2.fromOffset(260,3), Position=UDim2.new(0.5,0,0.5,28),
-        BackgroundColor3=T.off, BorderSizePixel=0, ZIndex=1001}, ov)
-    local barFill = new("Frame", {Size=UDim2.new(0,0,1,0), BackgroundColor3=Color3.new(1,1,1), BorderSizePixel=0, ZIndex=1002}, barBg)
-    new("UIGradient", {Color=ColorSequence.new(T.cyan, T.pink)}, barFill)
-    local word = "NERO//FE"
-    for i = 1, #word do lbl.Text = word:sub(1, i).."_"; task.wait(0.06) end
-    lbl.Text = word
-    local steps = {{0.25,"> carregando módulos..."},{0.55,"> sincronizando interface..."},{0.85,"> calibrando neon..."},{1,"> ACESSO LIBERADO"}}
-    for _, s in ipairs(steps) do
-        sub.Text = s[2]
-        tw(barFill, 0.25, {Size=UDim2.new(s[1],0,1,0)})
-        for _ = 1, 3 do lbl.Position = UDim2.new(0, math.random(-4,4), 0.5, -50); task.wait(0.04) end
-        lbl.Position = UDim2.new(0,0,0.5,-50)
-        task.wait(0.22)
+    local ov = new("Frame", {Name="Boot", Size=UDim2.fromScale(1,1), BackgroundColor3=Color3.new(1,1,1),
+        BorderSizePixel=0, ZIndex=1000, ClipsDescendants=true}, Gui)
+    new("UIGradient", {Color=ColorSequence.new(Color3.fromRGB(26,11,3), Color3.fromRGB(5,3,2)), Rotation=90}, ov)
+
+    -- grade de fundo
+    for i = 1, 11 do
+        new("Frame", {Size=UDim2.new(0,1,1,0), Position=UDim2.new(i/12,0,0,0), BackgroundColor3=T.cyan,
+            BackgroundTransparency=0.94, BorderSizePixel=0}, ov)
     end
-    tw(ov, 0.4, {BackgroundTransparency=1}); tw(lbl, 0.4, {TextTransparency=1}); tw(sub, 0.4, {TextTransparency=1})
-    tw(barBg, 0.4, {BackgroundTransparency=1}); tw(barFill, 0.4, {BackgroundTransparency=1})
+    for i = 1, 7 do
+        new("Frame", {Size=UDim2.new(1,0,0,1), Position=UDim2.new(0,0,i/8,0), BackgroundColor3=T.cyan,
+            BackgroundTransparency=0.94, BorderSizePixel=0}, ov)
+    end
+
+    -- partículas subindo
+    for _ = 1, 26 do
+        local s = math.random(2,4)
+        local y0 = math.random(30,110) / 100
+        local x0 = math.random(0,100) / 100
+        local p = new("Frame", {Size=UDim2.fromOffset(s,s), Position=UDim2.new(x0,0,y0,0),
+            BackgroundColor3=(math.random() > 0.5) and T.cyan or T.glow,
+            BackgroundTransparency=math.random(30,70)/100, BorderSizePixel=0, ZIndex=2}, ov)
+        TS:Create(p, TweenInfo.new((y0 + 0.05) * math.random(40,80) / 10, Enum.EasingStyle.Linear, Enum.EasingDirection.Out, -1),
+            {Position=UDim2.new(x0,0,-0.05,0)}):Play()
+    end
+
+    -- barra de scan descendo
+    local sc = new("Frame", {Size=UDim2.new(1,0,0,60), Position=UDim2.new(0,0,0,-60), BackgroundColor3=T.cyan,
+        BackgroundTransparency=0.88, BorderSizePixel=0, ZIndex=3}, ov)
+    new("UIGradient", {Rotation=90, Transparency=NumberSequence.new({NumberSequenceKeypoint.new(0,1),
+        NumberSequenceKeypoint.new(0.5,0), NumberSequenceKeypoint.new(1,1)})}, sc)
+    TS:Create(sc, TweenInfo.new(2.2, Enum.EasingStyle.Linear, Enum.EasingDirection.Out, -1), {Position=UDim2.new(0,0,1,0)}):Play()
+
+    -- cantos estilo HUD
+    local function bracket(ax, ay)
+        local b = new("Frame", {AnchorPoint=Vector2.new(ax,ay), Size=UDim2.fromOffset(22,22),
+            Position=UDim2.new(ax, ax == 0 and 14 or -14, ay, ay == 0 and 14 or -14), BackgroundTransparency=1, ZIndex=4}, ov)
+        new("Frame", {Size=UDim2.new(1,0,0,2), Position=UDim2.new(0,0,ay, ay == 0 and 0 or -2),
+            BackgroundColor3=T.cyan, BorderSizePixel=0}, b)
+        new("Frame", {Size=UDim2.new(0,2,1,0), Position=UDim2.new(ax, ax == 0 and 0 or -2, 0, 0),
+            BackgroundColor3=T.cyan, BorderSizePixel=0}, b)
+    end
+    bracket(0,0); bracket(1,0); bracket(0,1); bracket(1,1)
+
+    -- ===== lado esquerdo: logo, título, progresso =====
+    local Left = new("Frame", {AnchorPoint=Vector2.new(0.5,0.5), Size=UDim2.fromOffset(280,236),
+        Position=UDim2.new(0.28,0,0.5,0), BackgroundTransparency=1, ZIndex=5}, ov)
+
+    local holder = new("Frame", {AnchorPoint=Vector2.new(0.5,0), Size=UDim2.fromOffset(96,96),
+        Position=UDim2.new(0.5,0,0,0), BackgroundTransparency=1}, Left)
+    local base = new("Frame", {AnchorPoint=Vector2.new(0.5,0.5), Size=UDim2.fromOffset(84,84),
+        Position=UDim2.fromScale(0.5,0.5), BackgroundTransparency=1}, holder)
+    corner(base, 42); stroke(base, T.cyan, 1, 0.8)
+    local function ring(size, th, color)
+        local r = new("Frame", {AnchorPoint=Vector2.new(0.5,0.5), Size=UDim2.fromOffset(size,size),
+            Position=UDim2.fromScale(0.5,0.5), BackgroundTransparency=1}, holder)
+        corner(r, size/2)
+        local s = stroke(r, color, th, 0)
+        return new("UIGradient", {Transparency=NumberSequence.new({NumberSequenceKeypoint.new(0,0),
+            NumberSequenceKeypoint.new(0.4,0), NumberSequenceKeypoint.new(0.41,1), NumberSequenceKeypoint.new(1,1)})}, s)
+    end
+    local g1, g2 = ring(94, 3, T.cyan), ring(74, 2, T.glow)
+    new("TextLabel", {Size=UDim2.fromScale(1,1), BackgroundTransparency=1, Text="N", TextColor3=T.cyan,
+        Font=Enum.Font.SciFi, TextSize=34}, holder)
+
+    local rc
+    rc = RS.RenderStepped:Connect(function()
+        if not ov.Parent then rc:Disconnect() return end
+        local t = tick()
+        g1.Rotation = (t * 260) % 360
+        g2.Rotation = (-t * 150) % 360
+    end)
+
+    local function titleLbl(color, trans, z)
+        return new("TextLabel", {Size=UDim2.new(1,0,0,40), Position=UDim2.new(0,0,0,104), BackgroundTransparency=1,
+            Text="", TextColor3=color, TextTransparency=trans, Font=Enum.Font.SciFi, TextSize=34, ZIndex=z}, Left)
+    end
+    local tA, tB, tM = titleLbl(T.pink, 0.35, 5), titleLbl(T.glow, 0.35, 5), titleLbl(T.text, 0, 6)
+    new("TextLabel", {Size=UDim2.new(1,0,0,14), Position=UDim2.new(0,0,0,144), BackgroundTransparency=1,
+        Text="ORANGE EDITION  //  v21", TextColor3=T.sub, Font=Enum.Font.Code, TextSize=10, ZIndex=5}, Left)
+
+    local stat = new("TextLabel", {Size=UDim2.new(0.75,0,0,14), Position=UDim2.new(0,0,0,168), BackgroundTransparency=1,
+        Text="", TextColor3=T.glow, Font=Enum.Font.Code, TextSize=11, TextXAlignment=Enum.TextXAlignment.Left, ZIndex=5}, Left)
+    local pct = new("TextLabel", {Size=UDim2.new(0.25,0,0,14), Position=UDim2.new(0.75,0,0,168), BackgroundTransparency=1,
+        Text="0%", TextColor3=T.text, Font=Enum.Font.Code, TextSize=11, TextXAlignment=Enum.TextXAlignment.Right, ZIndex=5}, Left)
+    local barBg = new("Frame", {Size=UDim2.new(1,0,0,4), Position=UDim2.new(0,0,0,188), BackgroundColor3=T.off,
+        BorderSizePixel=0, ZIndex=5}, Left)
+    corner(barBg, 2)
+    local fill = new("Frame", {Size=UDim2.new(0,0,1,0), BackgroundColor3=Color3.new(1,1,1), BorderSizePixel=0, ZIndex=6}, barBg)
+    corner(fill, 2)
+    new("UIGradient", {Color=ColorSequence.new(T.pink, T.glow)}, fill)
+    new("TextLabel", {Size=UDim2.new(1,0,0,12), Position=UDim2.new(0,0,0,202), BackgroundTransparency=1,
+        Text="alvo: "..GameName:sub(1,30), TextColor3=T.sub, Font=Enum.Font.Code, TextSize=9,
+        TextXAlignment=Enum.TextXAlignment.Left, ZIndex=5}, Left)
+
+    -- glitch do título
+    task.spawn(function()
+        while ov.Parent do
+            task.wait(math.random(8,20) / 10)
+            if not ov.Parent then break end
+            for _ = 1, 4 do
+                tA.Position = UDim2.new(0, math.random(-4,4), 0, 104 + math.random(-1,1))
+                tB.Position = UDim2.new(0, math.random(-4,4), 0, 104 + math.random(-1,1))
+                task.wait(0.04)
+            end
+            tA.Position, tB.Position = UDim2.new(0,0,0,104), UDim2.new(0,0,0,104)
+        end
+    end)
+
+    -- ===== lado direito: painel com código sendo gerado =====
+    local Panel = new("Frame", {AnchorPoint=Vector2.new(1,0.5), Size=UDim2.new(0.4,0,0.74,0),
+        Position=UDim2.new(1,60,0.5,0), BackgroundColor3=Color3.fromRGB(14,8,4), BackgroundTransparency=0.12,
+        BorderSizePixel=0, ClipsDescendants=true, ZIndex=4}, ov)
+    corner(Panel, 6); stroke(Panel, T.cyan, 1.5, 0.3)
+    local ph = new("Frame", {Size=UDim2.new(1,0,0,24), BackgroundColor3=Color3.fromRGB(46,20,6), BorderSizePixel=0, ZIndex=5}, Panel)
+    new("Frame", {Size=UDim2.new(1,0,0,1), Position=UDim2.new(0,0,1,-1), BackgroundColor3=T.cyan,
+        BackgroundTransparency=0.4, BorderSizePixel=0, ZIndex=6}, ph)
+    local pdot = new("Frame", {Size=UDim2.fromOffset(6,6), Position=UDim2.new(0,10,0,9), BackgroundColor3=T.cyan,
+        BorderSizePixel=0, ZIndex=6}, ph)
+    corner(pdot, 3)
+    TS:Create(pdot, TweenInfo.new(0.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), {BackgroundTransparency=0.85}):Play()
+    new("TextLabel", {Size=UDim2.new(1,-30,1,0), Position=UDim2.new(0,24,0,0), BackgroundTransparency=1,
+        Text="nero_core.lua  //  compilando", TextColor3=T.glow, Font=Enum.Font.Code, TextSize=10,
+        TextXAlignment=Enum.TextXAlignment.Left, ZIndex=6}, ph)
+
+    local Lines = new("Frame", {Size=UDim2.new(1,-16,1,-34), Position=UDim2.new(0,8,0,29), BackgroundTransparency=1,
+        ClipsDescendants=true, ZIndex=5}, Panel)
+    new("UIListLayout", {VerticalAlignment=Enum.VerticalAlignment.Bottom, SortOrder=Enum.SortOrder.LayoutOrder,
+        Padding=UDim.new(0,1)}, Lines)
+    tw(Panel, 0.55, {Position=UDim2.new(1,-24,0.5,0)}, Enum.EasingStyle.Back)
+
+    -- helpers de código colorido (RichText)
+    local function kw(s)  return '<font color="#FF6A00">'..s..'</font>' end
+    local function str(s) return '<font color="#FFB000">&quot;'..s..'&quot;</font>' end
+    local function num(s) return '<font color="#FFFFFF">'..tostring(s)..'</font>' end
+    local function cm(s)  return '<font color="#8A5A3A">-- '..s..'</font>' end
+    local idents = {"core","hook","net","ui","ctx","bus","vm","cfg","sig","mem","gfx","fx","io","rt"}
+    local mods   = {"nero.core","nero.neon","nero.hooks","nero.fx","nero.net","nero.ui","nero.input","nero.render","nero.cache"}
+    local fns    = {"init","bind","mount","patch","sync","render","hydrate","dispatch","compile","link","boot","tick"}
+    local function pick(t) return t[math.random(#t)] end
+    local function hex(n)
+        local s = ""
+        for _ = 1, n do s = s..string.format("%X", math.random(0,15)) end
+        return s
+    end
+    local gens = {
+        function() return kw("local").." "..pick(idents).." = "..kw("require").."("..str(pick(mods))..")" end,
+        function() return kw("local function").." "..pick(fns).."("..pick(idents)..", "..pick(idents)..")" end,
+        function() return "  "..pick(idents).."."..pick(fns).."("..num(math.random(1,255))..", "..str(hex(6))..")" end,
+        function() return kw("if").." "..pick(idents).." "..kw("then").." "..pick(fns).."() "..kw("end") end,
+        function() return cm("0x"..hex(8).." linked "..pick(mods)) end,
+        function() return "  "..pick(idents).." = "..num("0x"..hex(4)).." + "..num(math.random(1,64)) end,
+        function() return kw("for").." i = "..num(1)..", "..num(math.random(8,64)).." "..kw("do") end,
+        function() return "  "..pick(idents)..":"..pick(fns).."("..str("neon")..")" end,
+        function() return kw("return").." "..pick(idents) end,
+        function() return kw("end") end,
+        function() return cm("tuning orange glow "..math.random(10,99).."%") end,
+        function() return str("0x"..hex(16)) end,
+    }
+
+    local lineNo, queue = 0, {}
+    local function addLine(txt)
+        lineNo = lineNo + 1
+        local l = new("TextLabel", {Size=UDim2.new(1,0,0,12), BackgroundTransparency=1, RichText=true,
+            Font=Enum.Font.Code, TextSize=10, TextColor3=T.text, TextXAlignment=Enum.TextXAlignment.Left,
+            TextTruncate=Enum.TextTruncate.AtEnd, LayoutOrder=lineNo, TextTransparency=1, ZIndex=5,
+            Text=string.format('<font color="#5C3A22">%04d</font>  %s', lineNo, txt)}, Lines)
+        tw(l, 0.15, {TextTransparency=0})
+        table.insert(queue, l)
+        local maxL = math.floor(Lines.AbsoluteSize.Y / 13) + 2
+        while #queue > maxL do
+            table.remove(queue, 1):Destroy()
+        end
+    end
+
+    local streaming = true
+    task.spawn(function()
+        task.wait()
+        while streaming and ov.Parent do
+            addLine(gens[math.random(#gens)]())
+            task.wait(math.random(2,7) / 100)
+        end
+    end)
+
+    -- ===== sequência =====
+    local word = "NERO//FE"
+    for i = 1, #word do
+        local s = word:sub(1, i) .. (i < #word and "_" or "")
+        tA.Text, tB.Text, tM.Text = s, s, s
+        task.wait(0.06)
+    end
+
+    local status = {
+        {0,   "> iniciando núcleo..."},
+        {18,  "> carregando módulos..."},
+        {40,  "> sincronizando interface..."},
+        {62,  "> calibrando neon laranja..."},
+        {84,  "> compilando abas..."},
+        {100, "> ACESSO LIBERADO"},
+    }
+    local si = 1
+    for p = 0, 100 do
+        pct.Text = p.."%"
+        tw(fill, 0.06, {Size=UDim2.new(p/100,0,1,0)}, Enum.EasingStyle.Linear)
+        while si <= #status and p >= status[si][1] do
+            stat.Text = status[si][2]
+            si = si + 1
+        end
+        if p == 35 or p == 70 then task.wait(0.25) end
+        task.wait(p < 90 and 0.035 or 0.08)
+    end
+
+    addLine(cm("compile ok // 0 erros"))
+    addLine(kw("return").." NERO")
     task.wait(0.4)
+    streaming = false
+
+    -- transição: clarão laranja e abre a interface
+    local veil = new("Frame", {Size=UDim2.fromScale(1,1), BackgroundColor3=Color3.fromRGB(255,140,40),
+        BackgroundTransparency=1, BorderSizePixel=0, ZIndex=1100}, Gui)
+    tw(veil, 0.22, {BackgroundTransparency=0.35})
+    task.wait(0.24)
     ov:Destroy()
+    tw(veil, 0.45, {BackgroundTransparency=1})
+    game:GetService("Debris"):AddItem(veil, 0.6)
 end
 end -- fim do bloco interno
 
@@ -547,6 +879,7 @@ task.spawn(function()
     UI.Boot()
     UI.Select(1)
     UI.Open()
+    UI.EButton()
     Notify("Interface carregada // "..GameName)
     DispararConfetes()
     task.wait(1.5)
@@ -567,10 +900,12 @@ end)
 --  Ordem das abas: 1 HUNTERS | 2 MAYHEM | 3 Teleporte | 4 VISUAIS | 5 CRÉDITOS
 --  6 NEXUS | 7 OMNIVERSE | 8 CATACLYSM | 9 MATRIX | 10 MIRAGE | 11 OVERDRIVE | 12 NETWORK
 --
---  Extras novos (opcionais): UI.Tabs[i]:Toggle/Button/Slider/Input/Label/Section
---  e UI.FloatingButton("E", function() ... end) para botões móveis.
+--  Extras (opcionais): UI.Tabs[i]:Toggle/Button/Slider/Input/Label/Section,
+--  UI.FloatingButton("X", function() ... end) para outros botões móveis,
+--  UI.EBox (o botão E) se quiser esconder/mostrar: UI.EBox.Visible = false
 -- ==========================================================================
 local okTabs, errTabs = pcall(function()
+
 -- ==================== ABA 1: PLAYERS ====================
 local ETog, EKnob, EBtn = createToggle("ESP", tabContainers[1], 0)
 local ATog, AKnob, ABtn = createToggle("Aimbot", tabContainers[1], 48)
@@ -6254,4 +6589,4 @@ if not okTabs then
     Toast("Erro nas abas", tostring(errTabs):sub(1, 70), C.pink)
 end
 
-print("[NERO//FE v21 CYBER] base carregada | "..GameName)
+print("[NERO//FE v21 ORANGE] base carregada | "..GameName)
